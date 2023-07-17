@@ -1,58 +1,109 @@
-<template>
-  <div class="hello">
-    <h1>{{ msg }}</h1>
-    <p>
-      For a guide and recipes on how to configure / customize this project,<br>
-      check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener">vue-cli documentation</a>.
-    </p>
-    <h3>Installed CLI Plugins</h3>
-    <ul>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-babel" target="_blank" rel="noopener">babel</a></li>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-eslint" target="_blank" rel="noopener">eslint</a></li>
-    </ul>
-    <h3>Essential Links</h3>
-    <ul>
-      <li><a href="https://vuejs.org" target="_blank" rel="noopener">Core Docs</a></li>
-      <li><a href="https://forum.vuejs.org" target="_blank" rel="noopener">Forum</a></li>
-      <li><a href="https://chat.vuejs.org" target="_blank" rel="noopener">Community Chat</a></li>
-      <li><a href="https://twitter.com/vuejs" target="_blank" rel="noopener">Twitter</a></li>
-      <li><a href="https://news.vuejs.org" target="_blank" rel="noopener">News</a></li>
-    </ul>
-    <h3>Ecosystem</h3>
-    <ul>
-      <li><a href="https://router.vuejs.org" target="_blank" rel="noopener">vue-router</a></li>
-      <li><a href="https://vuex.vuejs.org" target="_blank" rel="noopener">vuex</a></li>
-      <li><a href="https://github.com/vuejs/vue-devtools#vue-devtools" target="_blank" rel="noopener">vue-devtools</a></li>
-      <li><a href="https://vue-loader.vuejs.org" target="_blank" rel="noopener">vue-loader</a></li>
-      <li><a href="https://github.com/vuejs/awesome-vue" target="_blank" rel="noopener">awesome-vue</a></li>
-    </ul>
-  </div>
-</template>
+<script setup>
 
-<script>
-export default {
-  name: 'HelloWorld',
-  props: {
-    msg: String
-  }
-}
+    import {ref, watch} from 'vue'
+    import axios from 'axios'
+
+    const joke_setup = ref('')
+    const joke_punchline = ref('')
+    const recognition = new window.webkitSpeechRecognition();
+    const recognitionResult = ref('')
+    const items = ref([])
+    const voiceAccent = ref('')
+    const grammar = ''
+
+    window.speechSynthesis.onvoiceschanged = () => {
+        const voices = window.speechSynthesis.getVoices();
+        voiceAccent.value = voices[0].lang
+        const langSet = new Set();
+        voices.forEach(voice => {
+            langSet.add(voice.lang)
+        })
+        langSet.forEach(lang => {
+            items.value.push(lang)
+        })
+    };
+
+    function handleKeyDown(event) {
+        if(event.key === 'j' || event.key === 'J') {
+            generateJoke()
+        }
+    }
+
+    watch(recognitionResult, () => {
+        if(recognitionResult.value.toLowerCase() == 'tell me a joke') {
+            generateJoke()
+        }
+    })
+    
+    window.addEventListener('keydown', handleKeyDown)
+
+    function listen() {
+        recognition.start()
+    }
+
+    recognition.continuos = true
+    recognition.interimResults = true
+    recognition.lang = 'en-US'
+
+    recognition.onresult = (event) => {
+        recognitionResult.value = event.results[0][0].transcript
+    }
+
+    function generateJoke() {
+        axios.get('https://official-joke-api.appspot.com/jokes/programming/random')
+        .then(response => {
+            joke_setup.value = response.data[0].setup
+            joke_punchline.value = response.data[0].punchline
+            setTimeout(() => {
+                let punchline = new SpeechSynthesisUtterance(joke_punchline.value)
+                punchline.lang = voiceAccent.value
+                window.speechSynthesis.speak(punchline)
+            }, 3000)
+            let setup = new SpeechSynthesisUtterance(joke_setup.value)
+            setup.lang = voiceAccent.value
+            window.speechSynthesis.speak(setup)
+        })
+    }
+
+    
+    recognition.start()
+
+
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
+<template>
+    <v-container align="center" id="container" class="mt-5">
+        <h2 v-show="joke_setup">{{ joke_setup }}</h2>
+        <h2 v-show="joke_punchline">{{ joke_punchline }}</h2>
+        <v-img src="https://i.gifer.com/YseV.gif" width="80vw" class="mt-5" height="70vh">
+            <v-row>
+                <v-col>
+                    <v-btn @click="listen" id="button2">Say Tell me a joke</v-btn>
+                </v-col>
+                <v-col id="button">
+                    <v-btn color="blue" @click="generateJoke" @keydown="handleKeyDown">Tell me a joke</v-btn>
+                </v-col>
+                <v-col id="button">
+                    <v-select 
+                    label="Select voice language"
+                    v-model="voiceAccent"
+                    :items="items"
+                    ></v-select>
+                </v-col>
+            </v-row>
+            
+        </v-img>
+    </v-container>
+</template>
+
 <style scoped>
-h3 {
-  margin: 40px 0 0;
-}
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-li {
-  display: inline-block;
-  margin: 0 10px;
-}
-a {
-  color: #42b983;
-}
+
+    #container {
+        background-color: rgb(187,210,239);
+    }
+
+    #button, #button2 {
+        margin-top: 420px;
+    }
+
 </style>
